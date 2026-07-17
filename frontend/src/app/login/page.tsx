@@ -23,7 +23,7 @@ function LoginContent() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.push('/pin');
+      router.push('/');
     }
   }, [status, router]);
 
@@ -31,7 +31,7 @@ function LoginContent() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      await signIn('google', { callbackUrl: '/pin' });
+      await signIn('google', { callbackUrl: '/' });
     } catch (e) {
       console.error(e);
       setLoading(false);
