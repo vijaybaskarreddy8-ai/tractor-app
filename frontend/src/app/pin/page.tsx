@@ -63,7 +63,7 @@ function PinContent() {
       });
 
       if (!setupRes.ok) {
-        const errData = await setupRes.json();
+        const errData = await setupRes.json().catch(() => ({}));
         setSetupError(errData.error || 'Failed to set up PIN');
         setMode('setup');
         setTempPin('');
@@ -82,6 +82,8 @@ function PinContent() {
         router.push(callbackUrl);
         router.refresh();
       } else {
+        const errData = await verifyRes.json().catch(() => ({}));
+        setSetupError(errData.error || 'Verification failed');
         setMode('entry');
       }
     } catch {
@@ -105,7 +107,8 @@ function PinContent() {
         router.push(callbackUrl);
         router.refresh();
       } else {
-        setErrorMsg(t('incorrect'));
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error || t('incorrect'));
       }
     } catch {
       setErrorMsg('Network error. Please try again.');
