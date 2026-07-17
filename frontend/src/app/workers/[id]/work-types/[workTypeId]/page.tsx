@@ -86,12 +86,17 @@ export default function WorkTypeDetailPage({ params }: WorkTypeDetailPageProps) 
 
   const fetchData = async () => {
     try {
-      const workerRes = await fetch(`/api/workers/${workerId}`);
+      // Fire all 3 requests in parallel
+      const [workerRes, wtRes, entriesRes] = await Promise.all([
+        fetch(`/api/workers/${workerId}`),
+        fetch(`/api/work-types/${workTypeId}`),
+        fetch(`/api/entries?workTypeId=${workTypeId}`),
+      ]);
+
       if (workerRes.ok) {
         setWorker(await workerRes.json());
       }
-      
-      const wtRes = await fetch(`/api/work-types/${workTypeId}`);
+
       if (wtRes.ok) {
         const wtData = await wtRes.json();
         setWorkType(wtData);
@@ -103,7 +108,6 @@ export default function WorkTypeDetailPage({ params }: WorkTypeDetailPageProps) 
         return;
       }
 
-      const entriesRes = await fetch(`/api/entries?workTypeId=${workTypeId}`);
       if (entriesRes.ok) {
         setEntries(await entriesRes.json());
       }

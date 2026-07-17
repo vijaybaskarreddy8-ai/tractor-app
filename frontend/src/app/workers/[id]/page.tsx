@@ -63,7 +63,12 @@ export default function WorkerPage({ params }: WorkerPageProps) {
 
   const fetchWorkerData = async () => {
     try {
-      const workerRes = await fetch(`/api/workers/${workerId}`);
+      // Fetch worker + work types in parallel
+      const [workerRes, typesRes] = await Promise.all([
+        fetch(`/api/workers/${workerId}`),
+        fetch(`/api/work-types?workerId=${workerId}`),
+      ]);
+
       if (workerRes.ok) {
         const data = await workerRes.json();
         setWorker(data);
@@ -72,10 +77,8 @@ export default function WorkerPage({ params }: WorkerPageProps) {
         router.push('/');
       }
 
-      const typesRes = await fetch(`/api/work-types?workerId=${workerId}`);
       if (typesRes.ok) {
-        const data = await typesRes.json();
-        setWorkTypes(data);
+        setWorkTypes(await typesRes.json());
       }
     } catch (error) {
       console.error('Failed to fetch worker details:', error);

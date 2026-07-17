@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import { connectDB } from './db.js';
@@ -15,8 +16,15 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
+app.use(compression()); // gzip all responses
 app.use(cors());
 app.use(express.json());
+
+// Enable keep-alive for faster repeated requests
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Connection', 'keep-alive');
+  next();
+});
 
 // API Key authentication middleware
 const authenticateAPI = (req: Request, res: Response, next: NextFunction) => {
@@ -94,30 +102,57 @@ function computeDuration(startTime: string, endTime: string): number {
    WORKERS ROUTES
    ========================================================================== */
 
-// GET /api/workers - List workers with total hours
+// GET /api/workers - List workers with total hours (optimized with aggregation)
 app.get('/api/workers', async (req: Request, res: Response) => {
   try {
     await connectDB();
+
+    // Step 1: Get all workers (sorted)
     const workers = (await Worker.find().sort({ createdAt: 1 }).lean()) as any[];
+    if (workers.length === 0) {
+      return res.json([]);
+    }
 
-    const workersWithHours = await Promise.all(
-      workers.map(async (worker) => {
-        const workTypes = (await WorkType.find({ workerId: worker._id }).lean()) as any[];
-        const workTypeIds = workTypes.map((wt) => wt._id);
-        const entries = (await Entry.find({ workTypeId: { $in: workTypeIds } }).lean()) as any[];
-        const totalMinutes = entries.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
+    const workerIds = workers.map((w) => w._id);
 
-        return {
-          ...worker,
-          _id: worker._id.toString(),
-          totalMinutes,
-          totalHours: Math.floor(totalMinutes / 60),
-          totalMins: totalMinutes % 60,
-        };
-      })
-    );
+    // Step 2: Aggregate entries grouped by workerId in ONE query
+    const minutesByWorker = await WorkType.aggregate([
+      { $match: { workerId: { $in: workerIds } } },
+      {
+        $lookup: {
+          from: 'entries',
+          localField: '_id',
+          foreignField: 'workTypeId',
+          as: 'entries',
+        },
+      },
+      {
+        $group: {
+          _id: '$workerId',
+          totalMinutes: { $sum: { $sum: '$entries.durationMinutes' } },
+        },
+      },
+    ]);
 
-    res.json(workersWithHours);
+    // Build a quick lookup map
+    const minutesMap = new Map<string, number>();
+    for (const row of minutesByWorker) {
+      minutesMap.set(row._id.toString(), row.totalMinutes);
+    }
+
+    const result = workers.map((worker) => {
+      const totalMinutes = minutesMap.get(worker._id.toString()) || 0;
+      return {
+        ...worker,
+        _id: worker._id.toString(),
+        totalMinutes,
+        totalHours: Math.floor(totalMinutes / 60),
+        totalMins: totalMinutes % 60,
+      };
+    });
+
+    res.set('Cache-Control', 'no-store');
+    res.json(result);
   } catch (error) {
     console.error('GET /api/workers error:', error);
     res.status(500).json({ error: 'Failed to fetch workers' });
@@ -268,7 +303,7 @@ app.delete('/api/workers/:id', async (req: Request, res: Response) => {
    WORK TYPES ROUTES
    ========================================================================== */
 
-// GET /api/work-types - List work types for a worker
+// GET /api/work-types - List work types for a worker (optimized with aggregation)
 app.get('/api/work-types', async (req: Request, res: Response) => {
   try {
     const { workerId } = req.query;
@@ -279,23 +314,41 @@ app.get('/api/work-types', async (req: Request, res: Response) => {
     await connectDB();
     const workTypes = (await WorkType.find({ workerId }).sort({ createdAt: 1 }).lean()) as any[];
 
-    const workTypesWithHours = await Promise.all(
-      workTypes.map(async (wt) => {
-        const entries = (await Entry.find({ workTypeId: wt._id }).lean()) as any[];
-        const totalMinutes = entries.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
+    if (workTypes.length === 0) {
+      return res.json([]);
+    }
 
-        return {
-          ...wt,
-          _id: wt._id.toString(),
-          workerId: wt.workerId.toString(),
-          totalMinutes,
-          totalHours: Math.floor(totalMinutes / 60),
-          totalMins: totalMinutes % 60,
-        };
-      })
-    );
+    const workTypeIds = workTypes.map((wt) => wt._id);
 
-    res.json(workTypesWithHours);
+    // Single aggregation to get total minutes per work type
+    const minutesByWorkType = await Entry.aggregate([
+      { $match: { workTypeId: { $in: workTypeIds } } },
+      {
+        $group: {
+          _id: '$workTypeId',
+          totalMinutes: { $sum: '$durationMinutes' },
+        },
+      },
+    ]);
+
+    const minutesMap = new Map<string, number>();
+    for (const row of minutesByWorkType) {
+      minutesMap.set(row._id.toString(), row.totalMinutes);
+    }
+
+    const result = workTypes.map((wt) => {
+      const totalMinutes = minutesMap.get(wt._id.toString()) || 0;
+      return {
+        ...wt,
+        _id: wt._id.toString(),
+        workerId: wt.workerId.toString(),
+        totalMinutes,
+        totalHours: Math.floor(totalMinutes / 60),
+        totalMins: totalMinutes % 60,
+      };
+    });
+
+    res.json(result);
   } catch (error) {
     console.error('GET /api/work-types error:', error);
     res.status(500).json({ error: 'Failed to fetch work types' });
