@@ -28,7 +28,7 @@ export default function SettingsPage() {
 
   const fetchDeletePinStatus = async () => {
     try {
-      const res = await fetch('/api/auth/delete-pin/status');
+      const res = await fetch('/api/delete-pin/status');
       if (res.ok) {
         const data = await res.json();
         setHasDeletePin(data.hasPin);
@@ -72,7 +72,7 @@ export default function SettingsPage() {
     startTransition(async () => {
       setPinError(null);
       try {
-        const res = await fetch('/api/auth/delete-pin/setup', {
+        const res = await fetch('/api/delete-pin/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

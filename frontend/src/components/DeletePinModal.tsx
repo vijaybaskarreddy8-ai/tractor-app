@@ -34,7 +34,7 @@ export default function DeletePinModal({ isOpen, onClose, onSuccess }: DeletePin
     setError(null);
     setStep('loading');
 
-    fetch('/api/auth/delete-pin/status')
+    fetch('/api/delete-pin/status')
       .then((r) => r.json())
       .then((data) => {
         setStep(data.hasPin ? 'verify' : 'setup-new');
@@ -83,7 +83,7 @@ export default function DeletePinModal({ isOpen, onClose, onSuccess }: DeletePin
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/delete-pin/setup', {
+      const res = await fetch('/api/delete-pin/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPin: pin }),
@@ -111,7 +111,7 @@ export default function DeletePinModal({ isOpen, onClose, onSuccess }: DeletePin
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/delete-pin/verify', {
+      const res = await fetch('/api/delete-pin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin }),

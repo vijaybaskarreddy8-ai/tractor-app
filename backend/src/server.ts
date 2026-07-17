@@ -726,8 +726,8 @@ app.post('/api/auth/pin/verify', async (req: Request, res: Response) => {
    DELETE PIN PROTECTION
    ========================================================================== */
 
-// GET /api/auth/delete-pin/status - Check if delete PIN is set
-app.get('/api/auth/delete-pin/status', async (req: Request, res: Response) => {
+// GET /api/delete-pin/status - Check if delete PIN is set
+app.get('/api/delete-pin/status', async (req: Request, res: Response) => {
   try {
     const email = req.headers['x-user-email'];
     if (!email || typeof email !== 'string') {
@@ -739,15 +739,15 @@ app.get('/api/auth/delete-pin/status', async (req: Request, res: Response) => {
 
     res.json({ hasPin: !!user?.deletePinHash });
   } catch (error: any) {
-    console.error('GET /api/auth/delete-pin/status error:', error);
+    console.error('GET /api/delete-pin/status error:', error);
     res.status(500).json({ error: error.message || 'Failed to check delete PIN status' });
   }
 });
 
-// POST /api/auth/delete-pin/setup - Set or change the delete PIN
+// POST /api/delete-pin/setup - Set or change the delete PIN
 // If no PIN is set yet: just requires { newPin }
 // If PIN already set: requires { currentPin, newPin } to change it
-app.post('/api/auth/delete-pin/setup', async (req: Request, res: Response) => {
+app.post('/api/delete-pin/setup', async (req: Request, res: Response) => {
   try {
     const email = req.headers['x-user-email'];
     const { newPin, currentPin } = req.body;
@@ -783,13 +783,13 @@ app.post('/api/auth/delete-pin/setup', async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('POST /api/auth/delete-pin/setup error:', error);
+    console.error('POST /api/delete-pin/setup error:', error);
     res.status(500).json({ error: error.message || 'Failed to set delete PIN' });
   }
 });
 
-// POST /api/auth/delete-pin/verify - Verify the delete PIN (for each deletion)
-app.post('/api/auth/delete-pin/verify', async (req: Request, res: Response) => {
+// POST /api/delete-pin/verify - Verify the delete PIN (for each deletion)
+app.post('/api/delete-pin/verify', async (req: Request, res: Response) => {
   try {
     const email = req.headers['x-user-email'];
     const { pin } = req.body;
@@ -817,7 +817,7 @@ app.post('/api/auth/delete-pin/verify', async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('POST /api/auth/delete-pin/verify error:', error);
+    console.error('POST /api/delete-pin/verify error:', error);
     res.status(500).json({ error: error.message || 'Verification failed' });
   }
 });
