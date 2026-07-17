@@ -722,6 +722,106 @@ app.post('/api/auth/pin/verify', async (req: Request, res: Response) => {
   }
 });
 
+/* ==========================================================================
+   DELETE PIN PROTECTION
+   ========================================================================== */
+
+// GET /api/auth/delete-pin/status - Check if delete PIN is set
+app.get('/api/auth/delete-pin/status', async (req: Request, res: Response) => {
+  try {
+    const email = req.headers['x-user-email'];
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'X-User-Email header is required' });
+    }
+
+    await connectDB();
+    const user = (await User.findOne({ email }).lean()) as any;
+
+    res.json({ hasPin: !!user?.deletePinHash });
+  } catch (error: any) {
+    console.error('GET /api/auth/delete-pin/status error:', error);
+    res.status(500).json({ error: error.message || 'Failed to check delete PIN status' });
+  }
+});
+
+// POST /api/auth/delete-pin/setup - Set or change the delete PIN
+// If no PIN is set yet: just requires { newPin }
+// If PIN already set: requires { currentPin, newPin } to change it
+app.post('/api/auth/delete-pin/setup', async (req: Request, res: Response) => {
+  try {
+    const email = req.headers['x-user-email'];
+    const { newPin, currentPin } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'X-User-Email header is required' });
+    }
+    if (!newPin || !/^\d{4,6}$/.test(newPin)) {
+      return res.status(400).json({ error: 'New PIN must be 4-6 digits' });
+    }
+
+    await connectDB();
+    const user = (await User.findOne({ email }).lean()) as any;
+
+    // If a delete PIN is already set, current PIN must match before allowing change
+    if (user?.deletePinHash) {
+      if (!currentPin) {
+        return res.status(400).json({ error: 'Current PIN is required to change your delete PIN' });
+      }
+      const isValid = await bcrypt.compare(currentPin, user.deletePinHash);
+      if (!isValid) {
+        return res.status(401).json({ success: false, error: 'Current PIN is incorrect' });
+      }
+    }
+
+    const deletePinHash = await bcrypt.hash(newPin, 10);
+
+    await User.findOneAndUpdate(
+      { email },
+      { email, deletePinHash },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('POST /api/auth/delete-pin/setup error:', error);
+    res.status(500).json({ error: error.message || 'Failed to set delete PIN' });
+  }
+});
+
+// POST /api/auth/delete-pin/verify - Verify the delete PIN (for each deletion)
+app.post('/api/auth/delete-pin/verify', async (req: Request, res: Response) => {
+  try {
+    const email = req.headers['x-user-email'];
+    const { pin } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'X-User-Email header is required' });
+    }
+    if (!pin) {
+      return res.status(400).json({ error: 'PIN is required' });
+    }
+
+    await connectDB();
+    const user = (await User.findOne({ email }).lean()) as any;
+
+    if (!user?.deletePinHash) {
+      // No PIN set yet — caller should show setup flow instead
+      return res.status(404).json({ hasPin: false, error: 'No delete PIN set up yet' });
+    }
+
+    const isValid = await bcrypt.compare(pin, user.deletePinHash);
+    if (!isValid) {
+      // No lockout — unlimited retries as per requirement
+      return res.status(401).json({ success: false, error: 'Incorrect PIN. Please try again.' });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('POST /api/auth/delete-pin/verify error:', error);
+    res.status(500).json({ error: error.message || 'Verification failed' });
+  }
+});
+
 // Start Express Server
 app.listen(PORT, () => {
   console.log(`Tractor backend running on port ${PORT}`);

@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import FAB from '@/components/FAB';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import DeletePinModal from '@/components/DeletePinModal';
 import BottomNav from '@/components/BottomNav';
 import SyncIndicator from '@/components/SyncIndicator';
 import { useSyncStatus, useOfflineMutation } from '@/lib/offline/hooks';
@@ -74,6 +75,8 @@ export default function WorkTypeDetailPage({ params }: WorkTypeDetailPageProps) 
   const [showHourlyRate, setShowHourlyRate] = useState(false);
   const [editWTRate, setEditWTRate] = useState('');
   const [isDeleteWTOpen, setIsDeleteWTOpen] = useState(false);
+  const [isDeletePinOpen, setIsDeletePinOpen] = useState(false);
+  const [deleteActionType, setDeleteActionType] = useState<'worktype' | 'entry' | null>(null);
 
   // Warning/confirm states
   const [showMidnightAlert, setShowMidnightAlert] = useState(false);
@@ -290,6 +293,16 @@ export default function WorkTypeDetailPage({ params }: WorkTypeDetailPageProps) 
         router.push(`/workers/${workerId}`);
       }
     });
+  };
+
+  const handleDeletePinSuccess = () => {
+    setIsDeletePinOpen(false);
+    if (deleteActionType === 'worktype') {
+      handleDeleteWorkType();
+    } else if (deleteActionType === 'entry') {
+      handleDeleteEntry();
+    }
+    setDeleteActionType(null);
   };
 
   const handleShare = async () => {
@@ -782,7 +795,10 @@ export default function WorkTypeDetailPage({ params }: WorkTypeDetailPageProps) 
                 type="button"
                 className="btn btn-danger"
                 style={{ flex: '1 1 100%', minHeight: '48px', order: 3 }}
-                onClick={handleDeleteEntry}
+                onClick={() => {
+                  setDeleteActionType('entry');
+                  setIsDeletePinOpen(true);
+                }}
                 disabled={isPending}
               >
                 {t('common.delete')}
@@ -887,13 +903,26 @@ export default function WorkTypeDetailPage({ params }: WorkTypeDetailPageProps) 
       {/* Delete Work Type Confirmation */}
       <ConfirmDialog
         isOpen={isDeleteWTOpen}
-        onConfirm={handleDeleteWorkType}
+        onConfirm={() => {
+          setIsDeleteWTOpen(false);
+          setDeleteActionType('worktype');
+          setIsDeletePinOpen(true);
+        }}
         onCancel={() => setIsDeleteWTOpen(false)}
         title={t('worker.deleteWorkType')}
         message={t('worker.deleteWorkTypeConfirm', { name: workType?.name || '' })}
         confirmText={t('common.delete')}
         cancelText={t('common.cancel')}
         variant="danger"
+      />
+
+      <DeletePinModal
+        isOpen={isDeletePinOpen}
+        onClose={() => {
+          setIsDeletePinOpen(false);
+          setDeleteActionType(null);
+        }}
+        onSuccess={handleDeletePinSuccess}
       />
 
       <BottomNav />

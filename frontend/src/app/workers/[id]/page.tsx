@@ -8,6 +8,7 @@ import SearchBar from '@/components/SearchBar';
 import FAB from '@/components/FAB';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import DeletePinModal from '@/components/DeletePinModal';
 import BottomNav from '@/components/BottomNav';
 import SyncIndicator from '@/components/SyncIndicator';
 import { useSyncStatus, useOfflineMutation } from '@/lib/offline/hooks';
@@ -55,6 +56,7 @@ export default function WorkerPage({ params }: WorkerPageProps) {
 
   // Delete worker state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeletePinOpen, setIsDeletePinOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -462,13 +464,22 @@ export default function WorkerPage({ params }: WorkerPageProps) {
       {/* Delete Worker Confirmation */}
       <ConfirmDialog
         isOpen={isDeleteOpen}
-        onConfirm={handleDeleteWorker}
+        onConfirm={() => {
+          setIsDeleteOpen(false);
+          setIsDeletePinOpen(true);
+        }}
         onCancel={() => setIsDeleteOpen(false)}
         title={t('home.deleteWorker')}
         message={t('home.deleteWorkerConfirm', { name: worker?.name || '' })}
         confirmText={t('common.delete')}
         cancelText={t('common.cancel')}
         variant="danger"
+      />
+
+      <DeletePinModal
+        isOpen={isDeletePinOpen}
+        onClose={() => setIsDeletePinOpen(false)}
+        onSuccess={handleDeleteWorker}
       />
 
       <BottomNav />

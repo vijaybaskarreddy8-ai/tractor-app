@@ -3,7 +3,7 @@
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import Modal from '@/components/Modal';
@@ -16,9 +16,31 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   
   const [isLangOpen, setIsLangOpen] = useState(false);
+  const [hasDeletePin, setHasDeletePin] = useState(false);
+  const [isDeletePinOpen, setIsDeletePinOpen] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
   
   const [isPending, startTransition] = useTransition();
   const { status, pendingCount } = useSyncStatus();
+
+  const fetchDeletePinStatus = async () => {
+    try {
+      const res = await fetch('/api/auth/delete-pin/status');
+      if (res.ok) {
+        const data = await res.json();
+        setHasDeletePin(data.hasPin);
+      }
+    } catch (e) {
+      console.error('Failed to fetch delete pin status:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeletePinStatus();
+  }, []);
 
   const handleLanguageChange = async (locale: string) => {
     startTransition(async () => {
@@ -32,6 +54,45 @@ export default function SettingsPage() {
         router.refresh();
       } catch (error) {
         console.error('Failed to change language:', error);
+      }
+    });
+  };
+
+  const handleUpdateDeletePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{4,6}$/.test(newPin)) {
+      setPinError('New PIN must be 4 to 6 digits.');
+      return;
+    }
+    if (newPin !== confirmNewPin) {
+      setPinError(t('pin.mismatch'));
+      return;
+    }
+
+    startTransition(async () => {
+      setPinError(null);
+      try {
+        const res = await fetch('/api/auth/delete-pin/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            newPin,
+            currentPin: hasDeletePin ? currentPin : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert('Delete protection PIN saved successfully!');
+          setIsDeletePinOpen(false);
+          setCurrentPin('');
+          setNewPin('');
+          setConfirmNewPin('');
+          fetchDeletePinStatus();
+        } else {
+          setPinError(data.error || 'Failed to save PIN.');
+        }
+      } catch (error) {
+        setPinError('Network error. Failed to save PIN.');
       }
     });
   };
@@ -68,6 +129,36 @@ export default function SettingsPage() {
               onClick={() => setIsLangOpen(true)}
             >
               Change
+            </button>
+          </div>
+        </section>
+
+        {/* Delete PIN Protection Section */}
+        <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--color-primary)' }}>
+            {t('settings.deleteSecurity')}
+          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ flex: 1, paddingRight: 'var(--space-2)' }}>
+              <p style={{ fontWeight: 600 }}>
+                {hasDeletePin ? t('settings.changeDeletePin') : t('settings.setUpDeletePin')}
+              </p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-light)' }}>
+                {t('settings.deletePinSubtitle')}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setPinError(null);
+                setCurrentPin('');
+                setNewPin('');
+                setConfirmNewPin('');
+                setIsDeletePinOpen(true);
+              }}
+            >
+              {hasDeletePin ? 'Update' : 'Setup'}
             </button>
           </div>
         </section>
@@ -134,6 +225,99 @@ export default function SettingsPage() {
             </svg>
           </button>
         </div>
+      </Modal>
+
+      {/* Delete PIN Modal */}
+      <Modal isOpen={isDeletePinOpen} onClose={() => setIsDeletePinOpen(false)} title={hasDeletePin ? t('settings.changeDeletePin') : t('settings.setUpDeletePin')}>
+        <form onSubmit={handleUpdateDeletePin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {hasDeletePin && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <label htmlFor="current-pin" style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-medium)' }}>
+                {t('settings.currentPin')}
+              </label>
+              <input
+                id="current-pin"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                className="input"
+                value={currentPin}
+                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter current PIN"
+                required
+                disabled={isPending}
+                style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: 'var(--text-md)' }}
+              />
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <label htmlFor="new-pin" style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-medium)' }}>
+              {t('settings.newPin')}
+            </label>
+            <input
+              id="new-pin"
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              className="input"
+              value={newPin}
+              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+              placeholder="Enter 4-6 digit PIN"
+              required
+              disabled={isPending}
+              style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: 'var(--text-md)' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <label htmlFor="confirm-new-pin" style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-medium)' }}>
+              {t('settings.confirmNewPin')}
+            </label>
+            <input
+              id="confirm-new-pin"
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              className="input"
+              value={confirmNewPin}
+              onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ''))}
+              placeholder="Confirm new PIN"
+              required
+              disabled={isPending}
+              style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: 'var(--text-md)' }}
+            />
+          </div>
+
+          {pinError && (
+            <p style={{ color: 'var(--color-danger)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>
+              ⚠ {pinError}
+            </p>
+          )}
+
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => setIsDeletePinOpen(false)}
+              disabled={isPending}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              disabled={isPending}
+            >
+              {isPending ? t('common.loading') : t('common.save')}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       <BottomNav />

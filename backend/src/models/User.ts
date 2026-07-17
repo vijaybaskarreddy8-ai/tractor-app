@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IUser extends Document {
   email: string;
   pinHash: string | null;
+  deletePinHash: string | null;
   preferredLanguage: 'en' | 'te';
 }
 
@@ -13,6 +14,10 @@ const UserSchema = new Schema<IUser>({
     unique: true,
   },
   pinHash: {
+    type: String,
+    default: null,
+  },
+  deletePinHash: {
     type: String,
     default: null,
   },
