@@ -602,9 +602,9 @@ app.get('/api/auth/pin/status', async (req: Request, res: Response) => {
     res.json({
       hasPin: !!user?.pinHash,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/auth/pin/status error:', error);
-    res.status(500).json({ error: 'Failed to check PIN status' });
+    res.status(500).json({ error: error.message || 'Failed to check PIN status' });
   }
 });
 
@@ -631,9 +631,9 @@ app.post('/api/auth/pin/setup', async (req: Request, res: Response) => {
     );
 
     res.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /api/auth/pin/setup error:', error);
-    res.status(500).json({ error: 'Failed to set up PIN' });
+    res.status(500).json({ error: error.message || 'Failed to set up PIN' });
   }
 });
 
@@ -659,13 +659,13 @@ app.post('/api/auth/pin/verify', async (req: Request, res: Response) => {
 
     const isValid = await bcrypt.compare(pin, user.pinHash);
     if (!isValid) {
-      return res.status(401).json({ success: false });
+      return res.status(401).json({ success: false, error: 'Incorrect PIN' });
     }
 
     res.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /api/auth/pin/verify error:', error);
-    res.status(500).json({ error: 'Verification failed' });
+    res.status(500).json({ error: error.message || 'Verification failed' });
   }
 });
 
