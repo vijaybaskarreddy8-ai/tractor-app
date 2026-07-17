@@ -7,3 +7,6 @@ backend/dist/
 !frontend/.env.example
 !backend/.env.example
 /scratch
+
+.vercel
+.env*

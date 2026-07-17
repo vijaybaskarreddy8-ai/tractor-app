@@ -7,7 +7,6 @@ import { useState, useTransition } from 'react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import Modal from '@/components/Modal';
-import PinInput from '@/components/PinInput';
 import SyncIndicator from '@/components/SyncIndicator';
 import { useSyncStatus } from '@/lib/offline/hooks';
 
@@ -17,10 +16,6 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   
   const [isLangOpen, setIsLangOpen] = useState(false);
-  const [isPinOpen, setIsPinOpen] = useState(false);
-  const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
-  const [tempPin, setTempPin] = useState('');
-  const [pinError, setPinError] = useState<string | null>(null);
   
   const [isPending, startTransition] = useTransition();
   const { status, pendingCount } = useSyncStatus();
@@ -41,51 +36,8 @@ export default function SettingsPage() {
     });
   };
 
-  const handlePinInput = (pin: string) => {
-    setTempPin(pin);
-    setPinStep('confirm');
-    setPinError(null);
-  };
-
-  const handlePinConfirm = async (confirmPin: string) => {
-    if (confirmPin !== tempPin) {
-      setPinError(t('pin.mismatch'));
-      setPinStep('enter');
-      setTempPin('');
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const res = await fetch('/api/auth/pin/setup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin: confirmPin }),
-        });
-
-        if (res.ok) {
-          setIsPinOpen(false);
-          setPinStep('enter');
-          setTempPin('');
-          alert('PIN changed successfully!');
-        } else {
-          const data = await res.json();
-          setPinError(data.error || 'Failed to update PIN.');
-          setPinStep('enter');
-          setTempPin('');
-        }
-      } catch {
-        setPinError('Network error. Failed to save PIN.');
-        setPinStep('enter');
-        setTempPin('');
-      }
-    });
-  };
-
   const handleSignOut = async () => {
     startTransition(async () => {
-      // Clear cookies
-      document.cookie = 'pin_verified=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
       await signOut({ callbackUrl: '/login' });
     });
   };
@@ -116,28 +68,6 @@ export default function SettingsPage() {
               onClick={() => setIsLangOpen(true)}
             >
               Change
-            </button>
-          </div>
-        </section>
-
-        {/* Security Section */}
-        <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--color-primary)' }}>
-            {t('settings.security')}
-          </h2>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ fontWeight: 600 }}>{t('settings.changePin')}</p>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-light)' }}>
-                {t('pin.setupSubtitle')}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setIsPinOpen(true)}
-            >
-              Update
             </button>
           </div>
         </section>
@@ -203,29 +133,6 @@ export default function SettingsPage() {
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
-        </div>
-      </Modal>
-
-      {/* PIN Change Modal */}
-      <Modal isOpen={isPinOpen} onClose={() => { setIsPinOpen(false); setPinStep('enter'); }} title={t('settings.changePin')}>
-        <div style={{ minHeight: '350px', position: 'relative' }}>
-          {pinStep === 'enter' ? (
-            <PinInput
-              length={4}
-              onComplete={handlePinInput}
-              error={pinError}
-              title={t('pin.setupTitle')}
-              subtitle={t('pin.setupSubtitle')}
-            />
-          ) : (
-            <PinInput
-              length={4}
-              onComplete={handlePinConfirm}
-              error={pinError}
-              title={t('pin.confirmTitle')}
-              subtitle={t('pin.confirmSubtitle')}
-            />
-          )}
         </div>
       </Modal>
 

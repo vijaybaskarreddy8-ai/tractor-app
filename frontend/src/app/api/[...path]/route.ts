@@ -77,18 +77,6 @@ async function handleProxy(
       resData = await backendRes.text();
     }
 
-    // Special verification check: intercept verify success and inject secure pin cookie
-    if (pathStr === 'auth/pin/verify' && backendRes.ok && resData?.success === true) {
-      const nextResponse = NextResponse.json(resData, { status: backendRes.status });
-      nextResponse.cookies.set('pin_verified', 'true', {
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-        path: '/',
-      });
-      return nextResponse;
-    }
-
     if (resContentType.includes('application/json')) {
       return NextResponse.json(resData, { status: backendRes.status });
     } else {

@@ -8,7 +8,7 @@ const publicPaths = [
   '/api/locale',
   '/_next',
   '/icons',
-  '/manifest.json',
+  '/manifest.webmanifest',
   '/sw.js',
   '/favicon.ico',
 ];
@@ -40,12 +40,6 @@ export default auth((req) => {
   const localeCookie = req.cookies.get('locale');
   if (!localeCookie?.value && pathname !== '/language') {
     return NextResponse.redirect(new URL('/language', req.nextUrl.origin));
-  }
-
-  // PIN verification check
-  const pinVerified = req.cookies.get('pin_verified');
-  if (!pinVerified?.value && pathname !== '/pin') {
-    return NextResponse.redirect(new URL('/pin', req.nextUrl.origin));
   }
 
   return NextResponse.next();
