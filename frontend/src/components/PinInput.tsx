@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface PinInputProps {
   length: number;
@@ -19,6 +20,7 @@ export default function PinInput({
   title,
   subtitle,
 }: PinInputProps) {
+  const t = useTranslations();
   const [pin, setPin] = useState('');
   const [shaking, setShaking] = useState(false);
   const prevErrorRef = useRef<string | null>(null);
@@ -38,15 +40,10 @@ export default function PinInput({
     (digit: string) => {
       setPin((prev) => {
         if (prev.length >= length) return prev;
-        const next = prev + digit;
-        if (next.length === length) {
-          // Slight delay so the user sees the last dot fill
-          setTimeout(() => onComplete(next), 150);
-        }
-        return next;
+        return prev + digit;
       });
     },
-    [length, onComplete]
+    [length]
   );
 
   const handleBackspace = useCallback(() => {
@@ -115,7 +112,7 @@ export default function PinInput({
       )}
 
       {/* Numpad */}
-      <div className="numpad">
+      <div className="numpad" style={{ marginBottom: 'var(--space-6)' }}>
         {KEYS.map((key, i) => {
           if (key === '') {
             return <div key={i} className="numpad-key empty" />;
@@ -160,6 +157,30 @@ export default function PinInput({
           );
         })}
       </div>
+
+      {/* Confirm Button */}
+      <button
+        type="button"
+        className="btn btn-primary"
+        style={{
+          width: '100%',
+          maxWidth: '300px',
+          height: '52px',
+          fontSize: 'var(--text-base)',
+          fontWeight: '600',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s ease',
+          opacity: pin.length === length ? 1 : 0.5,
+          cursor: pin.length === length ? 'pointer' : 'not-allowed',
+        }}
+        disabled={pin.length !== length}
+        onClick={() => onComplete(pin)}
+      >
+        {t('common.confirm')}
+      </button>
     </div>
   );
 }
