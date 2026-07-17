@@ -16,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
-app.use(compression()); // gzip all responses
+app.use(compression() as any); // gzip all responses
 app.use(cors());
 app.use(express.json());
 
