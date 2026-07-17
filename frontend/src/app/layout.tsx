@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { auth } from '@/auth';
 import { SessionProvider } from 'next-auth/react';
+import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
 
 const inter = Inter({
@@ -58,6 +59,7 @@ export default async function RootLayout({
     >
       <body className={locale === 'te' ? 'font-telugu' : 'font-sans'} suppressHydrationWarning>
         <SessionProvider session={session}>
+          <PwaRegister />
           <NextIntlClientProvider messages={messages}>
             <div className="app-container">
               {children}
